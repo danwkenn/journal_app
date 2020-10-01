@@ -33,6 +33,8 @@ col <- function(width, ...) {
     tags$div(class=paste0("span", width), ...)
 }
 
+source("compile_all_notes.R")
+
 ui <- shinyUI(bootstrapPage(
     
     headerPanel("New Note"),
@@ -55,8 +57,11 @@ ui <- shinyUI(bootstrapPage(
                            selectionId = "selection",
                            value = init,
                            placeholder = "Show a placeholder when the editor is empty ...",wordWrap = TRUE),
-                       actionButton("do", "Render PDF"),actionButton("save_note", "Save note to file"),
+                       actionButton("do", "Render PDF"),
+                       actionButton("save_note", "Save note to file"),
+                       actionButton("compile_full", "Render journal"),
                        shinyDirButton("dir", "Input directory", "Upload"),
+                       uiOutput("DownloadButton"),
                        verbatimTextOutput("dir", placeholder = TRUE)),
                 column(width = 6, htmlOutput('pdfviewer',inline = FALSE))
             )
@@ -64,11 +69,8 @@ ui <- shinyUI(bootstrapPage(
     )
 ))
 
-
 # Define server logic required to draw a histogram
 server <- shinyServer(function(input, output, session) {
-    
-    
     
     #Create save filename:
     save_file_name = paste0("notes/",text_combination_generator(),".tex")
@@ -124,10 +126,7 @@ server <- shinyServer(function(input, output, session) {
     
     #
     content_tex <- reactive({
-        print(template_tex)
-        print(time())
         content  <- gsub(pattern = "FILL_TIME", replace = time(), x = template_tex)
-        print(content)
         content  <- gsub(pattern = "FILL_DATE", replace = date(), x = content)
         content <- gsub(pattern = "SHORT_TITLE",replace = input$title, x = content)
         content <- str_replace(content,
@@ -225,7 +224,21 @@ server <- shinyServer(function(input, output, session) {
         sink(file = NULL)
         
     })
+    message(getwd())
+    observeEvent(input$compile_full,{
+        compile_all_notes(wd = global$journal_files_location)
+    })
     
+    output$journal_file_download <- downloadHandler(
+        filename ="temp.pdf",
+        content = function(file){file.copy("temp.pdf", file)}
+    )
+    
+    observeEvent(input$compile_full,{
+    output$DownloadButton <<- renderUI({
+        downloadButton(outputId = "journal_file_download", label = "Download")
+    })
+    })
 })
 
 # Run the application 
